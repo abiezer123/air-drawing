@@ -5,46 +5,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Air Draw Bible</title>
+
     <style>
         body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-family: Arial, sans-serif;
             margin: 0;
-            height: 100vh;
             background: #f0f0f0;
+            font-family: Arial;
+            overflow: hidden;
         }
 
-        video,
-        canvas {
-            position: absolute;
-            left: 0;
-            top: 0;
-            transform: scaleX(-1);
-            /* mirror the webcam */
+        #mainWrap {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
         }
 
+        /* CAMERA AREA */
         #container {
             position: relative;
-            width: 640px;
-            height: 480px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: black;
+        }
+
+        canvas {
+            position: absolute;
+            transform: scaleX(-1);
+            width: auto;
+            height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+            background: black;
+        }
+
+        /* RIGHT TOOLBAR */
+        #toolbar {
+            width: 180px;
+            background: white;
+            padding: 15px;
+            border-left: 2px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .color {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #333;
+        }
+
+        #colorRow {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
     </style>
 
-    <!-- MediaPipe CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head>
 
 <body>
-    <h1>Air Drawing</h1>
-    <div id="container">
-        <video id="video" width="640" height="480" autoplay></video>
-        <canvas id="canvas" width="640" height="480"></canvas>
+
+    <div id="mainWrap">
+        <div id="container">
+            <video id="video" width="640" height="480" autoplay></video>
+            <canvas id="canvas" width="640" height="460"></canvas>
+        </div>
+
+        <div id="toolbar">
+            <h3>Brush</h3>
+            <div id="colorRow">
+                <!-- Blues -->
+                <div class="color" data-color="#00f0ff" style="background:#00f0ff"></div>
+                <div class="color" data-color="#009dff" style="background:#009dff"></div>
+                <div class="color" data-color="#004cff" style="background:#004cff"></div>
+
+                <!-- Reds -->
+                <div class="color" data-color="#ff0000" style="background:#ff0000"></div>
+                <div class="color" data-color="#ff4d4d" style="background:#ff4d4d"></div>
+                <div class="color" data-color="#b30000" style="background:#b30000"></div>
+
+                <!-- Greens -->
+                <div class="color" data-color="#00ff00" style="background:#00ff00"></div>
+                <div class="color" data-color="#3aff8c" style="background:#3aff8c"></div>
+                <div class="color" data-color="#007a2f" style="background:#007a2f"></div>
+
+                <!-- Yellows/Oranges -->
+                <div class="color" data-color="#ffff00" style="background:#ffff00"></div>
+                <div class="color" data-color="#ffae00" style="background:#ffae00"></div>
+                <div class="color" data-color="#ff7300" style="background:#ff7300"></div>
+
+                <!-- Purples -->
+                <div class="color" data-color="#ff00ff" style="background:#ff00ff"></div>
+                <div class="color" data-color="#a300ff" style="background:#a300ff"></div>
+                <div class="color" data-color="#6a00ff" style="background:#6a00ff"></div>
+
+                <!-- Neutrals -->
+                <div class="color" data-color="#ffffff" style="background:#ffffff"></div>
+                <div class="color" data-color="#cfcfcf" style="background:#cfcfcf"></div>
+                <div class="color" data-color="#808080" style="background:#808080"></div>
+                <div class="color" data-color="#000000" style="background:#000000"></div>
+            </div>
+            <div id="particleOptions">
+                <label>Particle Shape: </label>
+                <select id="particleShape">
+                    <option value="circle">Circle</option>
+                    <option value="square">Square</option>
+                    <option value="diamond">Diamond</option>
+                    <option value="heart">Heart</option>
+                </select>
+            </div>
+
+            <label>Size</label>
+            <input type="range" id="brushSize" min="2" max="25" value="5">
+
+            <button id="clearBtn" style=" height: 50px;">Clear</button>
+
+
+        </div>
     </div>
+
     <script src="main.js"></script>
 </body>
 
