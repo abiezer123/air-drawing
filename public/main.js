@@ -185,17 +185,49 @@ function onResults(results) {
         }
     });
 
-    // Draw all lines (persistent + current)
     [...lines, ...currentLines.filter(l => l.length > 0).map(l => ({ points: l, color: brushColor, size: brushSize }))].forEach(line => {
         if (line.points.length < 2) return;
         ctx.strokeStyle = line.color;
         ctx.lineWidth = line.size;
         ctx.lineJoin = "round";
         ctx.beginPath();
-        ctx.moveTo(line.points[0].x, line.points[0].y);
-        for (let i = 1; i < line.points.length; i++) ctx.lineTo(line.points[i].x, line.points[i].y);
+
+        ctx.shadowColor = line.color;    // glow color same as line
+        ctx.shadowBlur = 15;             // strength of glow
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        for (let i = 0; i < line.points.length; i++) {
+            let p = line.points[i];
+            let x = p.x;
+            let y = p.y;
+
+            // --- Stage 1: wave only ---
+            if (waveStage >= 1) {
+                y += Math.sin((x + waveOffset) * 0.05) * 5;
+            }
+
+            // --- Stage 2: wave + slow drift ---
+            if (waveStage === 2) {
+                x += driftOffsetX;
+                y += driftOffsetY;
+            }
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
         ctx.stroke();
     });
+
+    // Update offsets
+    if (waveStage >= 1) waveOffset += 2;
+
+    if (waveStage === 2) {
+        driftOffsetX += driftSpeed;
+        driftOffsetY += driftSpeed * 0.3; // diagonal slow drift
+    }
+
+
 
     updateParticles();
     drawParticles();
@@ -227,3 +259,14 @@ function clearAll() {
 }
 
 document.getElementById("clearBtn").addEventListener("click", clearAll);
+
+let waveActive = false;
+let waveOffset = 0;
+let waveStage = 0; // 0 = off, 1 = wave, 2 = wave + drift
+let driftOffsetX = 0;
+let driftOffsetY = 0;
+let driftSpeed = 0.3;
+
+document.getElementById("move").addEventListener("click", () => {
+    waveStage = (waveStage + 1) % 3;
+});
