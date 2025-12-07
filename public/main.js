@@ -1,3 +1,5 @@
+
+
 // -------------------- ELEMENTS --------------------
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
@@ -12,6 +14,11 @@ let brushSize = 5;
 // -------------------- PARTICLES --------------------
 let particles = [];
 let particleShape = "circle"; // default
+
+const emojiList = ['⭐', '✨', '💖', '🔥', '💧', '🍭'];
+let emojiStamps = [];
+let replayData = [];
+
 
 document.getElementById("particleShape").addEventListener("change", (e) => {
     particleShape = e.target.value;
@@ -114,7 +121,6 @@ function getGesture(landmarks) {
     return "none";
 }
 // -------------------- MOUSE ERASE LOGIC --------------------
-// -------------------- MOUSE ERASE LOGIC --------------------
 function mouseErase(mouseX, mouseY) {
     const eraseRadius = 40;
 
@@ -147,12 +153,25 @@ canvas.addEventListener("mousemove", (e) => {
     mouseErase(mouseX, mouseY);
 });
 
+let emoji_click_count = 0;
+document.getElementById("emoji").addEventListener("click", function () {
+    emoji_click_count++;
+})
+
+
+
 
 // -------------------- MAIN MEDIAPIPE LOOP --------------------
 function onResults(results) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
+    emojiStamps.forEach(stamp => {
+        ctx.font = "30px Segoe UI Emoji"; // size
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(stamp.emoji, stamp.x, stamp.y);
+    });
     const handsLandmarks = results.multiHandLandmarks || [];
     const handsLabel = results.multiHandedness || [];
 
@@ -165,24 +184,62 @@ function onResults(results) {
         const y = tip.y * canvas.height;
 
         if (gesture === "draw") {
-            currentLines[lineIndex].push({ x, y });
-            spawnParticles(x, y, brushColor);
-        } else if (gesture === "erase") {
+            if (emoji_click_count % 2 == 0) {
+                // NORMAL LINE MODE
+                const point = { x, y, color: brushColor, size: brushSize }; // define point
+                currentLines[lineIndex].push({ x, y });
+                spawnParticles(x, y, brushColor);
+
+
+                replayData.push({
+                    type: "line",
+                    hand: lineIndex,
+                    point: point,
+                    color: brushColor,
+                    size: brushSize
+                });
+            } else {
+                // EMOJI MODE
+                const emojiObj = {
+                    x,
+                    y,
+                    emoji: emojiList[Math.floor(Math.random() * emojiList.length)]
+                };
+                emojiStamps.push(emojiObj);
+
+                // Record for replay
+                replayData.push({ type: "emoji", emoji: emojiObj });
+            }
+        }
+
+        else if (gesture === "erase") {
             lines = lines.map(line => ({
                 ...line,
                 points: line.points.filter(p => distance(p, { x, y }) > 25)
             }));
             currentLines[lineIndex] = currentLines[lineIndex].filter(p => distance(p, { x, y }) > 25);
+
+            // ERASE EMOJIS
+            emojiStamps = emojiStamps.filter(e => distance(e, { x, y }) > 25);
         } else if (gesture === "fist") {
             if (currentLines[lineIndex].length > 0) {
-                lines.push({
-                    points: currentLines[lineIndex],
+                const finishedLine = {
+                    points: [...currentLines[lineIndex]],
                     color: brushColor,
                     size: brushSize
+                };
+                lines.push(finishedLine);
+
+                // Record line for replay as one event
+                replayData.push({
+                    type: "finishedLine",
+                    line: finishedLine
                 });
+
                 currentLines[lineIndex] = [];
             }
         }
+
     });
 
     [...lines, ...currentLines.filter(l => l.length > 0).map(l => ({ points: l, color: brushColor, size: brushSize }))].forEach(line => {
@@ -252,17 +309,20 @@ video.addEventListener("loadedmetadata", () => {
 });
 
 function clearAll() {
+    replayData = [];
     lines = [];
     currentLines = [[], []];
+    emojiStamps = [];
     particles = [];
-    ctx.clearRect(0.0, canvas.width.canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
+
 
 document.getElementById("clearBtn").addEventListener("click", clearAll);
 
 let waveActive = false;
 let waveOffset = 0;
-let waveStage = 0; // 0 = off, 1 = wave, 2 = wave + drift
+let waveStage = 0;
 let driftOffsetX = 0;
 let driftOffsetY = 0;
 let driftSpeed = 0.3;
@@ -270,3 +330,86 @@ let driftSpeed = 0.3;
 document.getElementById("move").addEventListener("click", () => {
     waveStage = (waveStage + 1) % 3;
 });
+
+document.getElementById("replay").addEventListener("click", replayDrawing)
+
+function replayDrawing() {
+    // Clear everything first
+    lines = [];
+    currentLines = [[], []];
+    emojiStamps = [];
+    particles = [];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let i = 0;
+
+    function step() {
+        if (i >= replayData.length) return;
+
+        const event = replayData[i];
+
+        if (event.type === "line") {
+            // Draw point in current line
+            currentLines[event.hand].push({
+                x: event.point.x,
+                y: event.point.y,
+                color: event.color,
+                size: event.size
+            });
+        }
+        else if (event.type === "finishedLine") {
+            // Push finished line to lines array
+            lines.push(event.line);
+        }
+        else if (event.type === "emoji") {
+            emojiStamps.push(event.emoji);
+        }
+
+        drawFrame();
+        i++;
+        requestAnimationFrame(step);
+    }
+
+    step();
+}
+
+
+function drawFrame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const allLines = [
+        ...lines,
+        ...currentLines
+            .filter(l => l.length > 0)
+            .map(l => ({ points: l, color: l[0].color, size: l[0].size }))
+    ];
+
+
+    allLines.forEach(line => {
+        if (!line.points || line.points.length < 1) return;
+
+        ctx.beginPath();
+        for (let i = 0; i < line.points.length; i++) {
+            let p = line.points[i];
+            ctx.strokeStyle = p.color || line.color;
+            ctx.lineWidth = p.size || line.size;
+            ctx.lineJoin = "round";
+
+            ctx.shadowColor = p.color || line.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+    });
+
+    emojiStamps.forEach(stamp => {
+        ctx.font = "48px Segoe UI Emoji";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(stamp.emoji, stamp.x, stamp.y);
+    });
+}
